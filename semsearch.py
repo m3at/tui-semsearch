@@ -104,14 +104,15 @@ import pickle
 from pathlib import Path
 import numpy as np
 
-import coremltools as ct
+# import coremltools as ct
+# from tokenizer import SimpleTokenizer
+from sentence_transformers import SentenceTransformer
 
 try:
     from tqdm import tqdm
 except ModuleNotFoundError:
     tqdm = lambda x: x
 
-from tokenizer import SimpleTokenizer
 
 
 DATA_DIR = Path(os.environ.get("XDG_CONFIG_HOME", default=Path.home() / ".local" / "share")) / "semsearch"
@@ -216,20 +217,27 @@ def main(input_path: Union[str, None]):
     target_dir = get_target_dir(input_path)
 
     # TODO: download from github release instead
-    model_coreml = ct.models.MLModel("./text_encoder_q16.mlmodel")
-    # model_coreml = ct.models.MLModel("./text_encoder_q4.mlmodel")
+    # model_coreml = ct.models.MLModel("./text_encoder_q16.mlmodel")
+
+    # DEBUG
+    # 384 dim, 20ms
+    st = SentenceTransformer("all-MiniLM-L12-v2")
+    # sentence_embeddings = st.encode("This is an example")
 
     # Warmup
     print("Warmup...")
     for _ in range(3):
-        _ = model_coreml.predict({"input": np.zeros([1, 77], dtype=np.int32)})
+        # _ = model_coreml.predict({"input": np.zeros([1, 77], dtype=np.int32)})
+        st.encode("whatever")
 
-    token_black = SimpleTokenizer()
-    inferer = lambda x: model_coreml.predict({"input": token_black(x)})["output"]
+    # token_black = SimpleTokenizer()
+    # inferer = lambda x: model_coreml.predict({"input": token_black(x)})["output"]
+    inferer = lambda x: np.reshape(st.encode(x), (1, -1))
 
     try:
         embeddings, files, list_files = get_embeddings_if_exist()
     except NeedEmbeddings:
+        print("Generating embeddings")
         embeddings, files, list_files = generate_embeddings(target_dir, inferer)
 
     # Interractive
